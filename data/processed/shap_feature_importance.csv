@@ -1,0 +1,15 @@
+feature,mean_absolute_shap
+numeric__followersatposting,0.049229175537375075
+categorical__type_Album,0.011571570016506438
+numeric__caption_length,0.009310763929157216
+numeric__post_hour,0.006344178090784539
+numeric__post_month,0.005317082773621889
+numeric__word_count,0.004519894962663424
+numeric__post_year,0.0037530177903795678
+numeric__hashtag_count,0.0015252586166126904
+numeric__post_day_of_week,0.0013003394012482939
+numeric__post_day,0.001084696455687257
+numeric__mention_count,0.000997679079678197
+categorical__type_Photo,0.0008602098740139505
+categorical__type_Video,4.788838883066772e-05
+numeric__is_caption_empty,5.592528592965174e-08

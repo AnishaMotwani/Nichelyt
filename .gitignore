@@ -1,0 +1,11 @@
+.venv/
+Scripts/
+share/
+pyvenv.cfg
+__pycache__/
+*.pyc
+*.exe
+.env
+.env.*
+.vscode/
+tempCodeRunnerFile.py

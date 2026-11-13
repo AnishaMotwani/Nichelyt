@@ -1,0 +1,2 @@
+model,mae,rmse,r2,split_type
+Random Forest Regression,0.038657026892888365,0.07065966114965497,0.4736566658091662,Random train-test split

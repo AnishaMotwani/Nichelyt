@@ -1,0 +1,19 @@
+scenario,post_type,caption_length_label,hashtag_count,predicted_engagement_rate,predicted_engagement_percentage,difference_from_baseline,percentage_point_difference
+Post type - Photo | Caption - Short | Hashtags - 3,Photo,Short,3,0.221986,22.1986,0.0,0.0
+Post type - Photo | Caption - Short | Hashtags - 8,Photo,Short,8,0.215697,21.5697,-0.006289,-0.6289
+Post type - Photo | Caption - Medium | Hashtags - 3,Photo,Medium,3,0.221397,22.1397,-0.000589,-0.0589
+Post type - Photo | Caption - Medium | Hashtags - 8,Photo,Medium,8,0.21336,21.336,-0.008626,-0.8626
+Post type - Photo | Caption - Long | Hashtags - 3,Photo,Long,3,0.221377,22.1377,-0.000609,-0.0609
+Post type - Photo | Caption - Long | Hashtags - 8,Photo,Long,8,0.21336,21.336,-0.008626,-0.8626
+Post type - Album | Caption - Short | Hashtags - 3,Album,Short,3,0.252949,25.2949,0.030963,3.0963
+Post type - Album | Caption - Short | Hashtags - 8,Album,Short,8,0.250655,25.0655,0.028669,2.8669
+Post type - Album | Caption - Medium | Hashtags - 3,Album,Medium,3,0.252249,25.2249,0.030263,3.0263
+Post type - Album | Caption - Medium | Hashtags - 8,Album,Medium,8,0.244703,24.4703,0.022717,2.2717
+Post type - Album | Caption - Long | Hashtags - 3,Album,Long,3,0.252249,25.2249,0.030263,3.0263
+Post type - Album | Caption - Long | Hashtags - 8,Album,Long,8,0.244703,24.4703,0.022717,2.2717
+Post type - Video | Caption - Short | Hashtags - 3,Video,Short,3,0.215924,21.5924,-0.006062,-0.6062
+Post type - Video | Caption - Short | Hashtags - 8,Video,Short,8,0.208624,20.8624,-0.013362,-1.3362
+Post type - Video | Caption - Medium | Hashtags - 3,Video,Medium,3,0.215499,21.5499,-0.006487,-0.6487
+Post type - Video | Caption - Medium | Hashtags - 8,Video,Medium,8,0.207462,20.7462,-0.014524,-1.4524
+Post type - Video | Caption - Long | Hashtags - 3,Video,Long,3,0.215479,21.5479,-0.006507,-0.6507
+Post type - Video | Caption - Long | Hashtags - 8,Video,Long,8,0.207462,20.7462,-0.014524,-1.4524
