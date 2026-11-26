@@ -5,7 +5,7 @@
    CONFIGURATION
 ===================================================== */
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "http://127.0.0.1:8001";
 
 let opportunityChartInstance = null;
 let shapChartInstance = null;
@@ -1103,6 +1103,59 @@ function renderCounterfactualDetails(data) {
     })
     .join("");
 }
+/* =====================================================
+   HIDDEN OPPORTUNITY DISCOVERY
+===================================================== */
+
+function renderHiddenOpportunities(data) {
+  const container = $("hiddenOpportunityDetails");
+
+  if (!container) {
+    return;
+  }
+
+  const discovery =
+    data.hidden_opportunity_discovery || {};
+
+  const opportunities =
+    discovery.opportunities ||
+    discovery.suggestions ||
+    [];
+
+  if (
+        discovery.status !== "success" ||
+    !Array.isArray(opportunities) ||
+    opportunities.length === 0
+  ) {
+    container.innerHTML = `
+      <div class="content-block">
+        <p>
+          No hidden opportunities were found for this niche.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = opportunities
+    .slice(0, 5)
+    .map((item, index) => `
+      <div class="content-block">
+        <h4>
+          ${index + 1}. ${escapeHTML(
+            item.theme || item.topic || item.opportunity || "Content opportunity"
+          )}
+        </h4>
+
+        <p>
+          ${escapeHTML(
+            item.explanation || item.reason || item.description || ""
+          )}
+        </p>
+      </div>
+    `)
+    .join("");
+}
 
 
 /* =====================================================
@@ -1123,6 +1176,7 @@ function renderResults(data) {
   renderAIContent(data);
 
   renderCounterfactualDetails(data);
+  renderHiddenOpportunities(data);
 
   setSectionVisibility(
     resultsSection,
