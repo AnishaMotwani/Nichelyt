@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 
 class OpportunityEngineV2:
@@ -846,6 +847,349 @@ class OpportunityEngineV2:
 
             "warnings": warnings
         }
+    
+    # ---------------------------------------------------------
+    # HIDDEN OPPORTUNITY DISCOVERY
+    # ---------------------------------------------------------
+
+    def discover_hidden_opportunities(
+        self,
+        niche,
+        top_k=100,
+        max_suggestions=5
+    ):
+
+        if not isinstance(niche, str) or not niche.strip():
+            raise ValueError("Niche cannot be empty.")
+
+        if len(self.metadata) == 0:
+            return {
+                "status": "unavailable",
+                "message": "No historical metadata is available.",
+                "opportunities": []
+            }
+
+        if "clean_text" not in self.metadata.columns:
+            return {
+                "status": "unavailable",
+                "message": "Caption text is missing from metadata.",
+                "opportunities": []
+            }
+
+        # Create a niche-only semantic query
+        query = f"Niche: {niche.strip()}"
+
+        query_embedding = self._get_query_embedding(query)
+
+        similarities = self._calculate_similarity(
+            query_embedding
+        )
+
+        # Retrieve the most relevant historical posts
+        top_indices = np.argsort(similarities)[::-1][
+            :min(top_k, len(similarities))
+        ]
+
+        relevant_posts = self.metadata.iloc[
+            top_indices
+        ].copy()
+
+        relevant_posts["similarity"] = similarities[
+            top_indices
+        ]
+                # Keep only semantically relevant historical posts
+        relevant_posts = relevant_posts[
+            relevant_posts["similarity"] >= 0.35
+        ].copy()
+
+        # Clean caption text
+        relevant_posts["clean_text"] = (
+            relevant_posts["clean_text"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+
+        relevant_posts = relevant_posts[
+            relevant_posts["clean_text"] != ""
+        ].reset_index(drop=True)
+
+        if len(relevant_posts) < 2:
+            return {
+                "status": "unavailable",
+                "message": "Not enough relevant captions were found.",
+                "opportunities": []
+            }
+
+        captions = relevant_posts["clean_text"].tolist()
+
+        # Extract recurring two-word and three-word themes
+        vectorizer = TfidfVectorizer(
+            ngram_range=(2, 3),
+            stop_words="english",
+            min_df=2,
+            max_df=0.90,
+            max_features=1000,
+            sublinear_tf=True
+        )
+
+        try:
+            tfidf_matrix = vectorizer.fit_transform(
+                captions
+            )
+
+        except ValueError:
+            return {
+                "status": "unavailable",
+                "message": "No recurring content themes were found.",
+                "opportunities": []
+            }
+
+        feature_names = vectorizer.get_feature_names_out()
+
+        candidate_themes = []
+
+        # Evaluate every extracted theme
+        for feature_index, theme in enumerate(feature_names):
+
+            matching_indices = tfidf_matrix[
+                :, feature_index
+            ].nonzero()[0]
+
+            frequency = len(matching_indices)
+
+            if frequency < 2:
+                continue
+
+            matching_posts = relevant_posts.iloc[
+                matching_indices
+            ]
+
+            theme_similarities = matching_posts[
+                "similarity"
+            ].to_numpy(dtype=float)
+
+            average_similarity = float(
+                np.mean(theme_similarities)
+            )
+
+            engagement_percentile = 0.0
+
+            if "engagement_rate" in matching_posts.columns:
+
+                engagement_values = pd.to_numeric(
+                    matching_posts["engagement_rate"],
+                    errors="coerce"
+                ).to_numpy(dtype=float)
+
+                percentiles = self._calculate_historical_percentile(
+                    engagement_values
+                )
+
+                valid_percentiles = percentiles[
+                    np.isfinite(percentiles)
+                ]
+
+                if len(valid_percentiles) > 0:
+                    engagement_percentile = float(
+                        np.mean(valid_percentiles)
+                    )
+
+            candidate_themes.append({
+                "theme": theme,
+                "frequency": frequency,
+                "average_similarity": average_similarity,
+                "engagement_percentile": engagement_percentile,
+                "matching_indices": matching_indices
+            })
+
+        if not candidate_themes:
+            return {
+                "status": "unavailable",
+                "message": "No recurring content themes were found.",
+                "opportunities": []
+            }
+
+        # Normalize frequency for ranking
+        maximum_frequency = max(
+            item["frequency"]
+            for item in candidate_themes
+        )
+
+        opportunities = []
+
+        for item in candidate_themes:
+
+            relevance_score = max(
+                0.0,
+                min(item["average_similarity"] * 100, 100.0)
+            )
+
+            frequency_score = (
+                item["frequency"] / maximum_frequency
+            ) * 100
+
+            engagement_score = item[
+                "engagement_percentile"
+            ]
+
+            # Exploratory ranking score
+            discovery_score = (
+                0.40 * relevance_score
+                + 0.40 * engagement_score
+                + 0.20 * frequency_score
+            )
+
+            matching_posts = relevant_posts.iloc[
+                item["matching_indices"]
+            ].sort_values(
+                "similarity",
+                ascending=False
+            )
+
+            supporting_posts = []
+
+            for _, post in matching_posts.head(2).iterrows():
+
+                supporting_posts.append({
+                    "caption": str(
+                        post["clean_text"]
+                    )[:180],
+                    "similarity": round(
+                        float(post["similarity"]), 4
+                    )
+                })
+
+            opportunities.append({
+                "theme": item["theme"],
+                "discovery_score": round(
+                    discovery_score, 2
+                ),
+                "frequency": item["frequency"],
+                "average_similarity": round(
+                    item["average_similarity"], 4
+                ),
+                "engagement_percentile": round(
+                    engagement_score, 2
+                ),
+                "explanation": (
+                    f"This theme appeared in "
+                    f"{item['frequency']} of the retrieved "
+                    f"historical posts, with an average "
+                    f"engagement percentile of "
+                    f"{engagement_score:.2f}."
+                ),
+                "supporting_posts": supporting_posts
+            })
+
+        opportunities.sort(
+            key=lambda item: item["discovery_score"],
+            reverse=True
+        )
+        print("\n========== HIDDEN OPPORTUNITY DEBUG ==========")
+        print("Selected Niche:", niche)
+        print("Retrieved Posts:", len(relevant_posts))
+        print("\nTOP 10 RANKED HISTORICAL THEMES:")
+
+        for item in opportunities[:10]:
+            print("\nTheme:", item["theme"])
+            print("Discovery Score:", item["discovery_score"])
+            print("Average Similarity:", item["average_similarity"])
+            print("Supporting Captions:")
+
+            for post in item["supporting_posts"]:
+                print("-", post["caption"])
+
+        print("\n==============================================")
+        # Convert ranked historical themes into actionable ideas
+        ranked_themes = opportunities[:max_suggestions]
+
+        try:
+            from gemini_content_service import generate_hidden_opportunities
+            generated_ideas = generate_hidden_opportunities(
+                niche=niche,
+                candidate_themes=ranked_themes,
+                max_suggestions=max_suggestions
+            )
+
+            polished_opportunities = []
+
+            for idea in generated_ideas:
+
+                source_indices = idea[
+                    "source_theme_indices"
+                ]
+
+                supporting_themes = [
+                    ranked_themes[index]
+                    for index in source_indices
+                ]
+
+                best_evidence = max(
+                    supporting_themes,
+                    key=lambda item: item["discovery_score"]
+                )
+
+                polished_opportunities.append({
+                    "theme": idea["title"],
+                    "explanation": idea["description"],
+                    "discovery_score": best_evidence[
+                        "discovery_score"
+                    ],
+                    "frequency": sum(
+                        item["frequency"]
+                        for item in supporting_themes
+                    ),
+                    "average_similarity": best_evidence[
+                        "average_similarity"
+                    ],
+                    "engagement_percentile": best_evidence[
+                        "engagement_percentile"
+                    ],
+                    "supporting_posts": [
+                        post
+                        for item in supporting_themes
+                        for post in item["supporting_posts"]
+                    ][:2]
+                })
+
+            opportunities = polished_opportunities
+
+        except Exception as error:
+
+            print(
+                "Hidden opportunity Gemini generation failed:",
+                str(error)
+            )
+
+            return {
+                "status": "unavailable",
+                "message": (
+                    "Actionable opportunities could not "
+                    "be generated from the available evidence."
+                ),
+                "opportunities": []
+            }
+
+
+        return {
+            "status": "success",
+            "niche": niche.strip(),
+            "retrieved_post_count": len(relevant_posts),
+            "analyzed_theme_count": len(candidate_themes),
+            "ranking_method": (
+                "40% semantic relevance, "
+                "40% historical engagement percentile, "
+                "20% relative frequency."
+            ),
+            "opportunities": opportunities[:max_suggestions],
+            "limitations": [
+                "Themes are extracted from historical captions.",
+                "Engagement percentiles are descriptive, not predictive.",
+                "Discovery scores are exploratory ranking scores.",
+                "Results do not represent live Instagram trends."
+            ]
+        }
 
     # ---------------------------------------------------------
     # MAIN ANALYSIS
@@ -905,16 +1249,26 @@ class OpportunityEngineV2:
             )
         )
 
-        similarities = (
-            self._calculate_similarity(
-                query_embedding
-            )
+        similarities = self._calculate_similarity(
+            query_embedding
         )
+
+        print("DEBUG - Total similarities:", len(similarities))
+
+        print(
+            "DEBUG - Relevant posts:",
+            int(np.sum(similarities >= relevance_threshold))
+        )
+
+        print("DEBUG - Threshold:", relevance_threshold)
+
+        print("DEBUG - Min similarity:", similarities.min())
+
+        print("DEBUG - Max similarity:", similarities.max())
 
         ranked_indices = np.argsort(
             similarities
         )[::-1]
-
         top_indices = (
             ranked_indices[:top_k]
         )

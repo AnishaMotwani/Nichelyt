@@ -815,3 +815,198 @@ REQUIRED JSON STRUCTURE
     )
 
     return content
+
+def generate_hidden_opportunities(
+    niche,
+    candidate_themes,
+    max_suggestions=5
+):
+    """
+    Convert historically extracted themes into
+    actionable content opportunities using Gemini.
+
+    Uses the existing Gemini client and JSON parser.
+    """
+
+    if not isinstance(niche, str) or not niche.strip():
+        raise ValueError("Niche cannot be empty.")
+
+    if not isinstance(candidate_themes, list) or not candidate_themes:
+        raise ValueError("Historical theme evidence is unavailable.")
+
+    if not isinstance(max_suggestions, int) or max_suggestions <= 0:
+        raise ValueError("max_suggestions must be positive.")
+
+    evidence = []
+
+    for index, item in enumerate(candidate_themes):
+
+        evidence.append({
+            "source_theme_index": index,
+            "historical_theme": item.get("theme", ""),
+            "frequency": item.get("frequency", 0),
+            "average_similarity": item.get("average_similarity", 0),
+            "engagement_percentile": item.get(
+                "engagement_percentile", 0
+            ),
+            "supporting_posts": item.get(
+                "supporting_posts", []
+            )
+        })
+
+    
+    prompt = f"""
+You are the content opportunity discovery module
+of Nichelyt, an AI-powered content planning system.
+
+Your task is to transform historical social media
+evidence into practical, niche-specific content ideas.
+
+USER NICHE:
+{niche}
+
+HISTORICAL EVIDENCE:
+{json.dumps(evidence, indent=2, ensure_ascii=False)}
+
+OBJECTIVE:
+Discover useful content opportunities that creators
+can actually create and publish within the given niche.
+
+STRICT INSTRUCTIONS:
+
+1. Every opportunity MUST be directly relevant to the
+   user's selected niche.
+
+2. Prioritize practical content ideas over promotional
+   announcements, product launches, and sales messages.
+
+3. Do not simply rewrite historical captions or
+   convert individual keywords into titles.
+
+4. Use historical evidence to understand content themes,
+   then develop original and actionable ideas.
+
+5. Prefer specific formats such as:
+   - Beginner-friendly tutorials
+   - Step-by-step guides
+   - Challenges
+   - Routine breakdowns
+   - Educational explainers
+   - Practical tips
+   - Demonstrations
+
+6. Do not force these formats. Select only those that
+   make sense for the supplied evidence and niche.
+
+7. Avoid generic promotional ideas such as:
+   - Link in bio
+   - Sold out announcements
+   - Restocking announcements
+   - Generic product promotions
+
+8. Do not invent historical statistics, audience
+   preferences, engagement results, or live trends.
+
+9. Every idea MUST cite at least one valid
+   source_theme_index from the historical evidence.
+
+10. Do not introduce unsupported details as historical
+    findings. Creative suggestions are allowed, but
+    they must remain relevant to the niche.
+
+11. Generate up to {max_suggestions} distinct ideas.
+    Return fewer if the evidence cannot reasonably
+    support more distinct opportunities.
+
+12. Titles must be specific, concise, and actionable.
+
+13. Descriptions must explain what the creator can
+    actually make or publish.
+
+14. Do not claim that an idea guarantees engagement,
+    virality, or audience growth.
+
+15. Historical engagement percentiles are descriptive
+    evidence, not predictions of future performance.
+
+RETURN ONLY VALID JSON.
+Do not use Markdown code fences.
+
+REQUIRED JSON FORMAT:
+
+{{
+    "opportunities": [
+        {{
+            "title": "Specific and actionable content idea",
+            "description": "One clear sentence explaining the content.",
+            "source_theme_indices": [0, 1]
+        }}
+    ]
+}}
+"""
+
+    response = client.models.generate_content(
+        model=MODEL_NAME,
+        contents=prompt
+    )
+
+    result = clean_gemini_json(response.text)
+
+    if not isinstance(result, dict):
+        raise ValueError("Gemini returned an invalid JSON object.")
+
+    generated = result.get("opportunities")
+
+    if not isinstance(generated, list):
+        raise ValueError("Gemini did not return an opportunities list.")
+
+    validated_opportunities = []
+
+
+    for item in generated:
+
+        if not isinstance(item, dict):
+            continue
+
+        title = item.get("title")
+        description = item.get("description")
+        source_indices = item.get("source_theme_indices")
+
+        if not isinstance(title, str) or not title.strip():
+            continue
+
+        if not isinstance(description, str) or not description.strip():
+            continue
+
+        if not isinstance(source_indices, list):
+            continue
+
+        valid_indices = []
+
+        for index in source_indices:
+            if (
+                isinstance(index, int)
+                and not isinstance(index, bool)
+                and 0 <= index < len(candidate_themes)
+                and index not in valid_indices
+            ):
+                valid_indices.append(index)
+
+        if not valid_indices:
+            continue
+
+        validated_opportunities.append({
+            "title": title.strip(),
+            "description": description.strip(),
+            "source_theme_indices": valid_indices
+        })
+
+        if len(validated_opportunities) >= max_suggestions:
+            break
+
+    if not validated_opportunities:
+        raise ValueError(
+            "Gemini could not generate valid evidence-backed opportunities."
+        )
+
+    return validated_opportunities

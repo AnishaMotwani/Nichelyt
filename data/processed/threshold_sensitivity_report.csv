@@ -1,0 +1,5 @@
+threshold,relevant_posts,total_posts,saturation_percentage,opportunity_from_saturation,trend_status,trend_relevant_dated_posts
+0.25,106,5935,1.79,98.21,available,106
+0.3,27,5935,0.45,99.55,available,27
+0.35,5,5935,0.08,99.92,unavailable,5
+0.4,3,5935,0.05,99.95,unavailable,3

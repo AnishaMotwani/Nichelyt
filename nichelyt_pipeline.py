@@ -677,6 +677,30 @@ def analyze_opportunity(
                 error
             )
         }
+    # ============================================================
+# HIDDEN OPPORTUNITY DISCOVERY
+# ============================================================
+
+def discover_hidden_opportunities(niche):
+
+    try:
+
+        engine = load_opportunity_engine()
+
+        result = engine.discover_hidden_opportunities(
+            niche=niche,
+            top_k=100,
+            max_suggestions=5
+        )
+
+        return result
+
+    except Exception as error:
+
+        return {
+            "status": "error",
+            "error": str(error)
+        }
 
 
 # ============================================================
@@ -951,6 +975,15 @@ def run_nichelyt_pipeline(
                     "was disabled."
                 )
             }
+                    # ----------------------------------------------------
+        # Hidden Opportunity Discovery
+        # ----------------------------------------------------
+
+        hidden_opportunity_result = (
+            discover_hidden_opportunities(
+                niche=niche
+            )
+        )
 
         # ----------------------------------------------------
         # Limitations
@@ -1042,8 +1075,12 @@ def run_nichelyt_pipeline(
                 shap_result
             ),
 
-            "counterfactual_comparison": (
+                        "counterfactual_comparison": (
                 counterfactual_result
+            ),
+
+            "hidden_opportunity_discovery": (
+                hidden_opportunity_result
             ),
 
             "gemini_content": (
